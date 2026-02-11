@@ -2,156 +2,108 @@
 # -*- coding: utf-8 -*-
 
 """
-【rsync_pull: 汎用リモート同期モジュール】
-
-■ 目的:
-    SSH鍵が設定できない環境において、パスワード認証を自動化し、
-    リモートから指定したパターンのファイルを同期する。
-
-■ 設定項目の凡例 (DEFAULT_CONFIG):
-    - BASE_DIR      : 基準ディレクトリ。ログ出力や同期先の起点。
-    - REMOTE_USER   : 接続先サーバのユーザー名。
-    - REMOTE_HOST   : 接続先サーバのIPアドレス。
-    - PASSWORD      : SSHパスワード。
-    - SRC_DIR       : 同期元（リモート）パス。末尾 / でディレクトリ内を同期。
-    - DEST_DIR      : 同期先（ローカル）パス。NoneならBASE_DIR配下に作成。
-    - BW_LIMIT      : 帯域制限 (KB/s)。1024 = 1MB/s。
-    - EXT_FILTER    : 同期対象ファイルパターン (例: *.csv, *.log)。
-    - ENABLE_LOG    : Trueで詳細な転送ログを画面にリアルタイム表示。
-    - LOG_FILE_NAME : ログファイル名 (デフォルト: execute.log)。
-
-■ 使い方1：直接実行（cronなど）
-    $ python3 rsync_utils.py
-    ※ 下記の DEFAULT_CONFIG の内容で動作します。
-
-■ 使い方2：cron（定期実行）への登録
-    $ crontab -e
-    以下の1行を末尾に追加してください（例：毎日深夜1時に実行）
-    00 01 * * * /usr/bin/python3 /home/jupyter_projects/download-files/lib/rsync_utils.py
-
-■ 使い方3：他のPythonファイルから呼び出し（モジュール利用）
-    from lib.rsync_utils import rsync_pull
-    rsync_pull({"EXT_FILTER": "*.log"})
-
-■ 依存関係:
-    - pexpect（外部ライブラリ）
-    - logger_config（自作モジュール）
+目的：rsync同期の実行、および「今回ダウンロードされたファイルのみ」を共通ログ形式で出力する。
+使い方：外部（Jupyter等）から rsync_pull(conf) を呼び出すか、本ファイルを直接実行する。
+引数：
+    conf (dict): 接続情報、パス、フィルタ等を含む設定辞書。
+返り値：
+    str: 実行結果の成否ステータスメッセージ。
 """
 
 import pexpect
-import sys
 import os
-
-# 自分のディレクトリを検索パスに加える
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
-    
+import sys
 from logger_config import setup_logger
 
-# ==========================================
-# デフォルト設定項目
-# ==========================================
-DEFAULT_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_NAME = "RSYNC_PULL"
-
-DEFAULT_CONFIG = {
-    "BASE_DIR": DEFAULT_BASE_DIR,
-    "REMOTE_USER": "asama",
-    "REMOTE_HOST": "192.168.3.61",
-    "PASSWORD": "Qu!ckly4589",
-    "SRC_DIR": "/home/jupyter_projects/input/",
-    "DEST_DIR": None,
-    "BW_LIMIT": "1024",
-    "EXT_FILTER": "*.csv",
-    "ENABLE_LOG": False,
-    "LOG_TO_FILE": True,
-    "LOG_FILE_NAME": "execute.log"
-}
-
-def rsync_pull(config_override=None):
+def rsync_pull(conf):
     """
-    rsync同期を実行する。
-    :param config_override: デフォルト値を上書きしたい項目を辞書で指定
-    :return: 実行結果のメッセージ
+    目的：設定に基づきrsyncを実行し、実際に転送が発生したファイルのみログに記録する。
+    使い方：JupyterまたはCLIから呼び出し。SSH初回確認は自動スキップされる。
+    引数：
+        conf (dict): 以下のキーを含む辞書
+            - REMOTE_USER, REMOTE_HOST, PASSWORD, SRC_DIR, DEST_DIR, 
+            - BW_LIMIT, EXT_FILTER, LOG_FILE_NAME, LOG_TO_FILE, ENABLE_LOG
+    返り値：
+        str: "Success: ..." または "Error: ..."
     """
-    # 設定の準備
-    conf = DEFAULT_CONFIG.copy()
-    if config_override:
-        conf.update(config_override)
+    # ログ出力先ディレクトリの自動作成（FileNotFoundError対策）
+    log_file_path = conf.get("LOG_FILE_NAME", "log/execute.log")
+    log_dir = os.path.dirname(os.path.abspath(log_file_path))
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    
+    log_file = os.path.basename(log_file_path)
+    logger = setup_logger("RSYNC_PULL", log_dir, conf.get("LOG_TO_FILE", True), log_file)
 
-    # 基準ディレクトリの確定と移動
-    target_base = conf["BASE_DIR"]
-    os.chdir(target_base)
-
-    # 同期先ディレクトリの確定
-    if conf["DEST_DIR"] is None:
-        conf["DEST_DIR"] = os.path.join(target_base, "rsync_pull_files")
-
-    # ロガーのセットアップ（logger_config.pyから読み込み）
-    logger = setup_logger(
-        name=APP_NAME, 
-        base_dir=target_base, 
-        log_to_file=conf["LOG_TO_FILE"],
-        file_name=conf["LOG_FILE_NAME"]
-    )
-
-    # 同期先ディレクトリの作成
-    if not os.path.exists(conf["DEST_DIR"]):
-        os.makedirs(conf["DEST_DIR"])
-
-    # rsyncコマンドの構築
+    # SSHオプション（ホスト鍵確認スキップ）
+    ssh_opts = "-e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"
     command = (
-        f'rsync -az --bwlimit={conf["BW_LIMIT"]} '
-        f'-e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" '
-        f'--include="{conf["EXT_FILTER"]}" '
-        f'--exclude="*" '
-        f'{conf["REMOTE_USER"]}@{conf["REMOTE_HOST"]}:{conf["SRC_DIR"]} {conf["DEST_DIR"]}'
+        f"rsync -avz {ssh_opts} --itemize-changes --bwlimit={conf['BW_LIMIT']} "
+        f"--include='{conf['EXT_FILTER']}' --exclude='*' "
+        f"{conf['REMOTE_USER']}@{conf['REMOTE_HOST']}:{conf['SRC_DIR']} {conf['DEST_DIR']}"
     )
-
-    logger.info(f"Sync started: {conf['REMOTE_HOST']}:{conf['SRC_DIR']} -> {conf['DEST_DIR']}")
 
     try:
-        # pexpectを使用してrsyncコマンドを起動
-        # timeout=None は大きなファイル転送中にpexpect自体がタイムアウトで終了するのを防ぐ設定
-        child = pexpect.spawn(command, timeout=None)
+        logger.info(f"Sync started: {conf['REMOTE_HOST']} -> {conf['DEST_DIR']}")
+        
+        child = pexpect.spawn(command, timeout=None, encoding='utf-8')
+        if conf.get("ENABLE_LOG", False):
+            child.logfile_read = sys.stdout 
 
-        # 設定(ENABLE_LOG)がTrueなら、rsyncの標準出力を直接画面に表示する
-        if conf["ENABLE_LOG"]:
-            child.logfile = sys.stdout.buffer
-
-        # プロンプト（入力待ち）に特定の文字列が出るのを待つ
-        # 0: 'assword:' が出た / 1: 終了した(EOF) / 2: 30秒経っても反応なし(TIMEOUT)
-        i = child.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT], timeout=30)
-
-        if i == 0:
-            # --- ケース0: パスワードを求められた場合 ---
-            # 設定したパスワードを送信する
+        index = child.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT], timeout=30)
+        if index == 0:
             child.sendline(conf["PASSWORD"])
-            # 同期が完了して接続が切れる(EOF)まで待機する
-            child.expect(pexpect.EOF)
-            logger.info("Success: Sync completed via password authentication.")
-            return "Success: Sync completed"
+        
+        child.expect(pexpect.EOF)
+        output = child.before
+        
+        # 転送されたファイルの抽出 (">f" で始まる行)
+        downloaded_files = [line.split(' ', 1)[1] for line in output.splitlines() if line.startswith('>f')]
 
-        elif i == 1:
-            # --- ケース1: パスワードを求められずに終了した場合 ---
-            logger.info("Success: Sync finished (No password prompted).")
-            return "Success: No password prompted"
-
-        elif i == 2:
-            # --- ケース2: タイムアウトした場合 ---
-            logger.error("Error: Connection Timeout during password prompt.")
-            return "Error: Connection Timeout"
+        res = "Success: Sync completed"
+        logger.info(res)
+        
+        if downloaded_files:
+            logger.info("--- Newly Downloaded Files List Start ---")
+            for f in downloaded_files:
+                logger.info(f"DOWNLOADED: {f}")
+            logger.info("--- Newly Downloaded Files List End ---")
+        else:
+            logger.info("No new files were downloaded (Already up-to-date).")
+        
+        return res
 
     except Exception as e:
-        # 予期せぬ不具合（rsync未インストール等）をキャッチして記録する
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error: {str(e)}")
         return f"Error: {str(e)}"
 
-    finally:
-        # 起動したプロセスがまだ生きていれば確実に終了させる
-        if 'child' in locals() and child.isalive():
-            child.close()
-
 if __name__ == "__main__":
-    rsync_pull()
+    """
+    目的：CLIから直接実行された際、プロジェクトルートを起点に設定ファイルを読み込み同期を行う。
+    使い方：python3 lib/rsync_utils.py （プロジェクトルートディレクトリで実行）
+    引数：なし
+    返り値：なし
+    """
+    import json
+    
+    # 実行ファイルの場所に関わらずプロジェクトルートを特定
+    # lib/rsync_utils.py の1つ上の階層をルートとする
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    CONFIG_PATH = os.path.join(BASE_DIR, "vault", "config.json")
+    
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            conf = json.load(f)
+        
+        # パスをルート基準の絶対パスに補正して実行場所依存を排除
+        if not os.path.isabs(conf["DEST_DIR"]):
+            conf["DEST_DIR"] = os.path.join(BASE_DIR, conf["DEST_DIR"])
+        if not os.path.isabs(conf["LOG_FILE_NAME"]):
+            conf["LOG_FILE_NAME"] = os.path.join(BASE_DIR, conf["LOG_FILE_NAME"])
+            
+        print(f"Starting rsync process from CLI...")
+        result = rsync_pull(conf)
+        print(f"Result: {result}")
+    else:
+        print(f"Error: Config file not found at {CONFIG_PATH}")
+        sys.exit(1)
