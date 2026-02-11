@@ -1,0 +1,4 @@
+show chassis hardware
+show version ;; 指定のOSバージョンであることを確認 ;; 18.2R1.9
+show route summary ;; hiddenルートがないことを確認 ;; 0 hidden
+show log messages ;; エラー確認 ;; 172.20.20.1

@@ -1,0 +1,32 @@
+{
+  "pve-nuc01": {
+    "device_type": "generic_termserver",
+    "host": "192.168.3.21",
+    "username": "root",
+    "password": "P!ssw0rd1234"
+  },
+    "clab-shuttle01": {
+    "device_type": "generic_termserver_telnet",
+    "host": "192.168.3.23",
+    "username": "sysope",
+    "password": "P!ssw0rd1234"
+  },
+  "sandbox": {
+    "device_type": "generic_termserver",
+    "host": "192.168.3.64",
+    "username": "sysope",
+    "password": "P!ssw0rd1234"
+  },
+    "clab-dev-vmx01": {
+    "device_type": "juniper_junos",
+    "host": "172.20.20.3",
+    "username": "admin",
+    "password": "admin@123"
+  },
+  "clab-dev-vmx02": {
+    "device_type": "juniper_junos",
+    "host": "172.20.20.2",
+    "username": "admin",
+    "password": "admin@123"
+  }
+}

@@ -1,0 +1,12 @@
+{
+    "REMOTE_USER": "sysope",
+    "REMOTE_HOST": "192.168.3.64",
+    "PASSWORD": "P!ssw0rd1234",
+    "SRC_DIR": "/home/sysope/rsync_pull_files/",
+    "DEST_DIR": "result",
+    "BW_LIMIT": "1024",
+    "EXT_FILTER": "*.csv",
+    "LOG_FILE_NAME": "result/execute.log",
+    "LOG_TO_FILE": true,
+    "ENABLE_LOG": false
+}
