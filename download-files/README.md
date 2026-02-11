@@ -23,8 +23,7 @@ project_name/
 ├── vault/                  # 機密情報（config.json 等を格納：Git除外）
 ├── .gitignore              # data/ や vault/ を管理対象外に設定
 ├── README.md               # 本ドキュメント
-├── 01_rsync-download.ipynb # 手動実行・疎通確認用Notebook
-└── run_sync.sh             # CRON用実行スクリプト
+└── 01_rsync-download.ipynb # 手動実行・疎通確認用Notebook
 
 ```
 
@@ -48,49 +47,20 @@ project_name/
 # プロジェクトルートへ移動
 $ cd /home/jupyter_projects/download-files/
 
-# PYTHONPATHにlibを追加して実行
-$ export PYTHONPATH=$PYTHONPATH:$(pwd)/lib
+# `lib/rsync_utils.py` を実行
 $ python3 lib/rsync_utils.py
 
 ```
 
----
-
-## CRON による定期実行設定
+### 3. CRON による定期実行設定
 
 サーバーで毎日決まった時間に自動実行する場合の設定例です。
 
-### 1. 実行用シェルスクリプトの作成
-
-環境変数のパスを通すため、ラッパースクリプト（例: `run_sync.sh`）を作成することをお勧めします。
-
-```bash
-#!/bin/bash
-# 目的：環境変数を設定し、同期スクリプトを安全に実行する
-# 使い方：sh run_sync.sh または crontabから呼び出し
-
-PROJECT_DIR="/home/jupyter_projects/download-files"
-cd $PROJECT_DIR
-
-# PYTHONPATHの設定（自作モジュールの場所を教える）
-export PYTHONPATH=$PYTHONPATH:$PROJECT_DIR/lib
-
-# 実行（標準出力とエラーをログに流す）
-/usr/bin/python3 lib/rsync_utils.py >> $PROJECT_DIR/result/cron_shell.log 2>&1
-
-```
-
-### 2. crontab への登録
-
-```bash
-$ crontab -e
-
-```
-
-以下の1行を末尾に追加（例：毎日深夜 02:00 に実行）
+`crontab -e`で、以下の1行を末尾に追加（例：毎日深夜 02:00 に実行）
 
 ```text
-00 02 * * * /bin/bash /home/jupyter_projects/download-files/run_sync.sh
+# 毎日 02:00 に実行
+00 02 * * * cd /home/jupyter_projects/download-files && /usr/bin/python3 lib/rsync_utils.py
 
 ```
 
