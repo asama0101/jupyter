@@ -1,0 +1,20 @@
+# Device  : vmx1
+# Command : show route
+# Executed: 2026-02-24 11:17:42
+# ============================================================
+
+mgmt_junos.inet.0: 3 destinations, 3 routes (3 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+0.0.0.0/0          *[Static/5] 01:39:11
+                    > to 10.0.0.2 via fxp0.0
+10.0.0.0/24        *[Direct/0] 01:39:11
+                    > via fxp0.0
+10.0.0.15/32       *[Local/0] 01:39:11
+                      Local via fxp0.0
+
+inet6.0: 1 destinations, 1 routes (1 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+ff02::2/128        *[INET6/0] 01:39:22
+                      MultiRecv

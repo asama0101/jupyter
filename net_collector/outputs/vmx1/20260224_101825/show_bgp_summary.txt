@@ -1,0 +1,6 @@
+# Device  : vmx1
+# Command : show bgp summary
+# Executed: 2026-02-24 10:18:25
+# ============================================================
+
+BGP is not running
