@@ -1,0 +1,30 @@
+# 接続情報を含む設定ファイル（パスワード等が含まれるためコミットしない）
+config.yaml
+
+# 転送ログ
+*.log
+logs/
+
+# ダウンロード先ディレクトリ
+downloads/
+staging/
+
+# Python キャッシュ
+__pycache__/
+src/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# 仮想環境
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Jupyter チェックポイント
+.ipynb_checkpoints/

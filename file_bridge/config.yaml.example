@@ -1,0 +1,25 @@
+# SCP 転送ツール 設定ファイルサンプル
+# このファイルをコピーして config.yaml を作成し、接続情報を編集してください。
+# config.yaml は .gitignore に追加済みのため、パスワードを記載しても Git には含まれません。
+
+profiles:
+  production:
+    host: prod.example.com
+    port: 22
+    user: deploy
+    # password: your_password  # 省略時は環境変数 SCP_PASSWORD または対話入力
+    remote_base: /var/data/
+    local_base: ./downloads/
+    log: ./logs/transfer_prod.log
+    checksum: true
+
+  staging:
+    host: stg.example.com
+    port: 2222
+    user: admin
+    remote_base: /tmp/data/
+    local_base: ./staging/
+    log: ./logs/transfer_stg.log
+    checksum: false
+
+default_profile: staging
