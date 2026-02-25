@@ -1,6 +1,0 @@
-2026-02-24 11:16:51 [INFO] src: 接続開始: vmx1 (172.20.20.2) via 1 踏み台
-2026-02-24 11:16:53 [INFO] src.executor: [vmx1] コマンド実行 [1/4]: show version
-2026-02-24 11:16:54 [INFO] src.executor: [vmx1] コマンド実行 [2/4]: show interfaces terse
-2026-02-24 11:16:54 [INFO] src.executor: [vmx1] コマンド実行 [3/4]: show route
-2026-02-24 11:16:55 [INFO] src.executor: [vmx1] コマンド実行 [4/4]: show bgp summary
-2026-02-24 11:16:55 [INFO] src: 保存完了: outputs/vmx1/20260224_111655/
